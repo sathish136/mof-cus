@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// Dialog removed - now using direct downloads without preview
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
@@ -2533,129 +2533,7 @@ export default function Reports() {
       {reportType === "individual-monthly" && renderIndividualMonthlyReport()}
       {reportType === "monthly-absence" && renderMonthlyAbsenceReport()}
 
-      {/* Export Preview Dialog */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <FileSpreadsheet className="h-6 w-6 text-green-600" />
-              Export Preview - {previewData?.filename}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {previewData && (
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="font-semibold text-gray-800 mb-2">Export Details</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-600">Report Type:</span>
-                    <span className="ml-2 text-gray-900 capitalize">{previewData.reportType.replace('-', ' ')}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Records:</span>
-                    <span className="ml-2 text-gray-900">{previewData.data.length} entries</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Format:</span>
-                    <span className="ml-2 text-gray-900">Excel (.xlsx)</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">File Size:</span>
-                    <span className="ml-2 text-gray-900">~{Math.ceil(previewData.data.length * 0.1)}KB</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg">
-                <div className="p-3 bg-gray-100 border-b">
-                  <h4 className="font-semibold text-gray-800">Data Preview (First 5 records)</h4>
-                </div>
-                <div className="p-4 overflow-x-auto">
-                  <table className="min-w-full text-xs border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        {previewData.reportType === 'monthly-attendance' ? (
-                          <>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Employee ID</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Full Name</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Department</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Group</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Total Hours</th>
-                          </>
-                        ) : previewData.reportType === 'offer-attendance' ? (
-                          <>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Employee ID</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Full Name</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Group</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Total Offer Hours</th>
-                            <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Working Days</th>
-                          </>
-                        ) : (
-                          Object.keys(previewData.data[0] || {}).slice(0, 5).map((key: string) => (
-                            <th key={key} className="border border-gray-300 px-2 py-1 text-left font-semibold">
-                              {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}
-                            </th>
-                          ))
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.data.slice(0, 5).map((record: any, index: number) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          {previewData.reportType === 'monthly-attendance' ? (
-                            <>
-                              <td className="border border-gray-300 px-2 py-1">{record.employeeId}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.fullName}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.department || ''}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.employeeGroup || ''}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.totalHours || 0}</td>
-                            </>
-                          ) : previewData.reportType === 'offer-attendance' ? (
-                            <>
-                              <td className="border border-gray-300 px-2 py-1">{record.employeeId}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.fullName}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.employeeGroup === 'group_a' ? 'Group A' : 'Group B'}</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.totalOfferHours}h</td>
-                              <td className="border border-gray-300 px-2 py-1">{record.workingDays}</td>
-                            </>
-                          ) : (
-                            Object.values(record).slice(0, 5).map((value: any, idx: number) => (
-                              <td key={idx} className="border border-gray-300 px-2 py-1">
-                                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                              </td>
-                            ))
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {previewData.data.length > 5 && (
-                    <p className="text-gray-500 text-xs mt-2">... and {previewData.data.length - 5} more records</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsPreviewOpen(false)}
-                  className="px-6"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleExportToExcel}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Excel
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Preview dialog removed - now using direct downloads */}
     </div>
   );
 
