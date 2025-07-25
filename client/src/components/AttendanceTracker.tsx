@@ -234,10 +234,10 @@ export default function AttendanceTracker() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : "-"}
+                        {record.checkInDisplay || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : "-"}
+                        {record.checkOutDisplay || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {record.workingHours || "-"}

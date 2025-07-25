@@ -460,12 +460,27 @@ router.get("/api/attendance", async (req, res) => {
 
     let finalRecords = allEmployeeRecords.map((record) => {
       if (record.attendanceId) {
-        // Employee is present
+        // Employee is present - convert UTC times to Sri Lanka local time for display
+        const formatLocalTime = (utcTime: Date | null) => {
+          if (!utcTime) return null;
+          // Convert UTC to Sri Lanka time (UTC+5:30)
+          const sriLankaTime = new Date(utcTime.getTime() + (5.5 * 60 * 60 * 1000));
+          return sriLankaTime.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false 
+          });
+        };
+
         return {
           id: record.attendanceId,
           date: record.attendanceDate,
           checkIn: record.checkIn,
           checkOut: record.checkOut,
+          // Add formatted local times for frontend display
+          checkInDisplay: formatLocalTime(record.checkIn),
+          checkOutDisplay: formatLocalTime(record.checkOut),
           status: record.attendanceStatus,
           workingHours: record.workingHours,
           notes: record.notes,
@@ -481,6 +496,8 @@ router.get("/api/attendance", async (req, res) => {
           date: startDate,
           checkIn: null,
           checkOut: null,
+          checkInDisplay: null,
+          checkOutDisplay: null,
           status: 'absent' as const,
           workingHours: null,
           notes: null,
