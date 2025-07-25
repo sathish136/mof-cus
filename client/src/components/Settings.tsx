@@ -1457,6 +1457,28 @@ export default function Settings() {
                           <RefreshCw className="w-4 h-4" />
                         }
                       </Button>
+                      <Button variant="outline" size="sm" className="text-slate-600 hover:text-slate-800" title="Edit Device" onClick={() => {
+                        setEditingDevice(device);
+                        setIsEditDialogOpen(true);
+                      }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setViewingDevice(device);
+                          getUsersMutation.mutate(device.deviceId);
+                        }}
+                        disabled={getUsersMutation.isPending && getUsersMutation.variables === device.deviceId}
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        title="View Employees on Device"
+                      >
+                        {getUsersMutation.isPending && getUsersMutation.variables === device.deviceId ? 
+                          <RefreshCw className="w-4 h-4 animate-spin" /> : 
+                          <Users className="w-4 h-4" />
+                        }
+                      </Button>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button 
@@ -1487,28 +1509,6 @@ export default function Settings() {
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
-                      <Button variant="outline" size="sm" className="text-slate-600 hover:text-slate-800" title="Edit Device" onClick={() => {
-                        setEditingDevice(device);
-                        setIsEditDialogOpen(true);
-                      }}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setViewingDevice(device);
-                          getUsersMutation.mutate(device.deviceId);
-                        }}
-                        disabled={getUsersMutation.isPending && getUsersMutation.variables === device.deviceId}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                        title="View Employees on Device"
-                      >
-                        {getUsersMutation.isPending && getUsersMutation.variables === device.deviceId ? 
-                          <RefreshCw className="w-4 h-4 animate-spin" /> : 
-                          <Users className="w-4 h-4" />
-                        }
-                      </Button>
                       </div>
                     </div>
                   </div>
