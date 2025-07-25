@@ -2849,11 +2849,21 @@ router.get('/api/reports/late-arrival', async (req, res) => {
 
       // Only include records that are actually late or half day
       if (status === 'late' || status === 'half_day') {
+        // Format minutes late to show hours and minutes if above 59 minutes
+        let formattedLateTime = '';
+        if (minutesLate > 59) {
+          const hours = Math.floor(minutesLate / 60);
+          const minutes = minutesLate % 60;
+          formattedLateTime = `${hours} hr ${minutes} min`;
+        } else {
+          formattedLateTime = `${minutesLate} min`;
+        }
+
         return {
           ...record,
           checkInTime: record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : null,
           status,
-          minutesLate
+          minutesLate: formattedLateTime // Now returns formatted string instead of raw number
         };
       }
       return null;
