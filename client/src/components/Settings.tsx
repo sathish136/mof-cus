@@ -586,21 +586,81 @@ export default function Settings() {
 
   const syncDeviceMutation = useMutation({
     mutationFn: async (deviceId: string) => {
-      const response = await fetch(`/api/zk-devices/${deviceId}/sync`, { method: 'POST' });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to sync device' }));
-        throw new Error(errorData.message || 'Failed to sync device');
+      // Start progress simulation
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        if (progress < 90) {
+          progress += Math.random() * 15;
+          setSyncProgress(prev => ({
+            ...prev,
+            progress: Math.min(progress, 90),
+            message: progress < 30 ? 'Connecting to device...' : 
+                    progress < 60 ? 'Reading attendance records...' :
+                    'Processing data...',
+            recordsProcessed: Math.floor(progress * 10)
+          }));
+        }
+      }, 200);
+
+      try {
+        const response = await fetch(`/api/zk-devices/${deviceId}/sync`, { method: 'POST' });
+        
+        clearInterval(progressInterval);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to sync device' }));
+          throw new Error(errorData.message || 'Failed to sync device');
+        }
+        
+        const result = await response.json();
+        
+        // Complete progress
+        setSyncProgress(prev => ({
+          ...prev,
+          progress: 100,
+          message: 'Sync completed successfully',
+          recordsProcessed: result.recordCount || prev.recordsProcessed
+        }));
+
+        return result;
+      } catch (error) {
+        clearInterval(progressInterval);
+        setSyncProgress(prev => ({
+          ...prev,
+          isRunning: false,
+          progress: 0,
+          message: 'Sync failed'
+        }));
+        throw error;
       }
-      return response.json();
     },
     onSuccess: (data, deviceId) => {
+      setTimeout(() => {
+        setSyncProgress({
+          isRunning: false,
+          progress: 0,
+          message: '',
+          recordsProcessed: 0,
+          totalDevices: 0,
+          currentDevice: ''
+        });
+      }, 2000);
+      
       toast({
         title: "Sync Complete",
-        description: `Synced attendance data from device ${deviceId}`,
+        description: `Successfully synced ${data.recordCount || 'attendance'} records from device ${deviceId}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
     },
     onError: (error: any, deviceId) => {
+      setSyncProgress({
+        isRunning: false,
+        progress: 0,
+        message: '',
+        recordsProcessed: 0,
+        totalDevices: 0,
+        currentDevice: ''
+      });
       toast({
         title: "Sync Failed",
         description: `Failed to sync data from device ${deviceId}: ${error.message}`,
@@ -1373,25 +1433,95 @@ export default function Settings() {
                       >
                         <AlertCircle className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => syncDeviceMutation.mutate(device.deviceId)}
-                        disabled={syncDeviceMutation.isPending}
-                        className="text-amber-600 border-amber-200 hover:bg-amber-50"
-                        title="Sync Attendance Data"
-                      >
-                        {syncDeviceMutation.isPending ? 
-                          <RefreshCw className="w-4 h-4 animate-spin" /> : 
-                          <RefreshCw className="w-4 h-4" />
-                        }
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-slate-600 hover:text-slate-800" title="Edit Device" onClick={() => {
-                        setEditingDevice(device);
-                        setIsEditDialogOpen(true);
-                      }}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                            title="Sync Attendance Data"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Sync Attendance Data</DialogTitle>
+                            <DialogDescription>
+                              Syncing attendance data from device "{device.deviceId}"...
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            {/* Progress Bar */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>Progress</span>
+                                <span>{Math.round(syncProgress.progress)}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${syncProgress.progress}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            
+                            {/* Sync Status */}
+                            {syncProgress.isRunning && (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center text-blue-600">
+                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  {syncProgress.message || "Processing attendance records..."}
+                                </div>
+                                <div className="text-gray-500">
+                                  Records processed: {syncProgress.recordsProcessed}
+                                </div>
+                                {syncProgress.currentDevice && (
+                                  <div className="text-gray-500">
+                                    Current device: {syncProgress.currentDevice}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {!syncProgress.isRunning && syncProgress.progress === 100 && (
+                              <div className="flex items-center text-green-600 text-sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Sync completed successfully
+                              </div>
+                            )}
+                          </div>
+                          <DialogFooter>
+                            <Button 
+                              onClick={() => {
+                                setSyncProgress({
+                                  isRunning: true,
+                                  progress: 0,
+                                  message: 'Starting sync...',
+                                  recordsProcessed: 0,
+                                  totalDevices: 1,
+                                  currentDevice: device.deviceId
+                                });
+                                syncDeviceMutation.mutate(device.deviceId);
+                              }}
+                              disabled={syncDeviceMutation.isPending || syncProgress.isRunning}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              {syncDeviceMutation.isPending || syncProgress.isRunning ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Syncing...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Start Sync
+                                </>
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button 
@@ -1422,6 +1552,12 @@ export default function Settings() {
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
+                      <Button variant="outline" size="sm" className="text-slate-600 hover:text-slate-800" title="Edit Device" onClick={() => {
+                        setEditingDevice(device);
+                        setIsEditDialogOpen(true);
+                      }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
