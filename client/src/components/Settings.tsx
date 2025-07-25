@@ -1380,24 +1380,25 @@ export default function Settings() {
           {biometricDevices && biometricDevices.length > 0 ? (
             <div className="space-y-4">
               {biometricDevices.map((device: BiometricDevice) => (
-                <div key={device.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-lg ${device.isActive ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <div key={device.id} className="bg-white border border-slate-200 rounded-lg shadow-sm">
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-lg ${device.isActive ? 'bg-emerald-100' : 'bg-red-100'}`}>
                       {device.isActive ? (
                         <Wifi className="w-5 h-5 text-emerald-600" />
                       ) : (
                         <WifiOff className="w-5 h-5 text-red-600" />
                       )}
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <p className="text-sm font-semibold text-slate-900">{device.deviceId}</p>
                       <p className="text-xs text-slate-600 flex items-center mt-1">
                         <MapPin className="w-3 h-3 mr-1" />
                         {device.location}
                       </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3">
                     <Badge variant={device.isActive ? "default" : "secondary"} 
                            className={device.isActive ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-red-100 text-red-800 border-red-200"}>
                       {device.isActive ? "Online" : "Offline"}
@@ -1433,95 +1434,29 @@ export default function Settings() {
                       >
                         <AlertCircle className="w-4 h-4" />
                       </Button>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-amber-600 border-amber-200 hover:bg-amber-50"
-                            title="Sync Attendance Data"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Sync Attendance Data</DialogTitle>
-                            <DialogDescription>
-                              Syncing attendance data from device "{device.deviceId}"...
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            {/* Progress Bar */}
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span>Progress</span>
-                                <span>{Math.round(syncProgress.progress)}%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${syncProgress.progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                            
-                            {/* Sync Status */}
-                            {syncProgress.isRunning && (
-                              <div className="space-y-2 text-sm">
-                                <div className="flex items-center text-blue-600">
-                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  {syncProgress.message || "Processing attendance records..."}
-                                </div>
-                                <div className="text-gray-500">
-                                  Records processed: {syncProgress.recordsProcessed}
-                                </div>
-                                {syncProgress.currentDevice && (
-                                  <div className="text-gray-500">
-                                    Current device: {syncProgress.currentDevice}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {!syncProgress.isRunning && syncProgress.progress === 100 && (
-                              <div className="flex items-center text-green-600 text-sm">
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Sync completed successfully
-                              </div>
-                            )}
-                          </div>
-                          <DialogFooter>
-                            <Button 
-                              onClick={() => {
-                                setSyncProgress({
-                                  isRunning: true,
-                                  progress: 0,
-                                  message: 'Starting sync...',
-                                  recordsProcessed: 0,
-                                  totalDevices: 1,
-                                  currentDevice: device.deviceId
-                                });
-                                syncDeviceMutation.mutate(device.deviceId);
-                              }}
-                              disabled={syncDeviceMutation.isPending || syncProgress.isRunning}
-                              className="bg-blue-600 hover:bg-blue-700"
-                            >
-                              {syncDeviceMutation.isPending || syncProgress.isRunning ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Syncing...
-                                </>
-                              ) : (
-                                <>
-                                  <RefreshCw className="w-4 h-4 mr-2" />
-                                  Start Sync
-                                </>
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSyncProgress({
+                            isRunning: true,
+                            progress: 0,
+                            message: 'Starting sync...',
+                            recordsProcessed: 0,
+                            totalDevices: 1,
+                            currentDevice: device.deviceId
+                          });
+                          syncDeviceMutation.mutate(device.deviceId);
+                        }}
+                        disabled={syncDeviceMutation.isPending || syncProgress.isRunning}
+                        className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                        title="Sync Attendance Data"
+                      >
+                        {syncDeviceMutation.isPending || syncProgress.isRunning ? 
+                          <Loader2 className="w-4 h-4 animate-spin" /> : 
+                          <RefreshCw className="w-4 h-4" />
+                        }
+                      </Button>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button 
@@ -1574,8 +1509,47 @@ export default function Settings() {
                           <Users className="w-4 h-4" />
                         }
                       </Button>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Progress Bar - Show when syncing this specific device */}
+                  {syncProgress.isRunning && syncProgress.currentDevice === device.deviceId && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-gray-100 bg-gray-50">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">Sync Progress</span>
+                          <span className="text-blue-600">{Math.round(syncProgress.progress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${syncProgress.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center text-blue-600">
+                          <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                          {syncProgress.message || "Processing attendance records..."}
+                        </div>
+                        <div className="text-gray-500 text-xs">
+                          Records processed: {syncProgress.recordsProcessed}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Success Message - Show when sync completed for this device */}
+                  {!syncProgress.isRunning && syncProgress.progress === 100 && syncProgress.currentDevice === device.deviceId && (
+                    <div className="px-4 pb-4 border-t border-gray-100 bg-green-50">
+                      <div className="flex items-center text-green-600 text-sm py-2">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Sync completed successfully - {syncProgress.recordsProcessed} records processed
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
