@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Wifi, MapPin, Plus, Edit, Trash2, RefreshCw, Activity, AlertCircle, Users, ChevronRight, Building2, Building, User, Shield, Key, FileText, HelpCircle, CheckCircle, XCircle, Clock, Mail, Database } from "lucide-react";
+import { Settings as SettingsIcon, Wifi, MapPin, Plus, Edit, Trash2, RefreshCw, Activity, AlertCircle, Users, ChevronRight, Building2, Building, User, Shield, Key, FileText, HelpCircle, CheckCircle, XCircle, Clock, Mail, Database, Loader2, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { useLicense } from "@/hooks/useLicense";
 import { LicenseInfo } from "@/components/LicenseInfo";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -62,6 +63,14 @@ export default function Settings() {
     syncOnStartup: true,
     syncNotifications: true
   });
+  const [syncProgress, setSyncProgress] = useState({
+    isRunning: false,
+    progress: 0,
+    message: '',
+    recordsProcessed: 0,
+    totalDevices: 0,
+    currentDevice: ''
+  });
   const { license, validateLicense } = useLicense();
   const [systemLogs, setSystemLogs] = useState({
     activityLogs: [] as any[],
@@ -95,6 +104,17 @@ export default function Settings() {
     },
   });
 
+  // Auto-sync Status Query (for real-time status)
+  const { data: autoSyncStatus } = useQuery({
+    queryKey: ['/api/auto-sync/status'],
+    queryFn: async () => {
+      const response = await fetch('/api/auto-sync/status');
+      if (!response.ok) throw new Error('Failed to fetch auto-sync status');
+      return response.json();
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
   // Auto-sync Settings Mutation
   const updateAutoSyncMutation = useMutation({
     mutationFn: async (settings: typeof autoSyncSettings) => {
@@ -122,9 +142,18 @@ export default function Settings() {
     },
   });
 
-  // Manual Sync Mutation
+  // Manual Sync Mutation with progress tracking
   const manualSyncMutation = useMutation({
     mutationFn: async () => {
+      setSyncProgress({
+        isRunning: true,
+        progress: 0,
+        message: 'Connecting to biometric devices...',
+        recordsProcessed: 0,
+        totalDevices: biometricDevices?.length || 1,
+        currentDevice: ''
+      });
+
       const response = await fetch('/api/auto-sync/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,14 +161,41 @@ export default function Settings() {
       if (!response.ok) throw new Error('Failed to perform manual sync');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setSyncProgress(prev => ({
+        ...prev,
+        progress: 100,
+        message: `Sync completed! ${data.recordsProcessed || 0} records processed`,
+        isRunning: false
+      }));
+      
+      setTimeout(() => {
+        setSyncProgress({
+          isRunning: false,
+          progress: 0,
+          message: '',
+          recordsProcessed: 0,
+          totalDevices: 0,
+          currentDevice: ''
+        });
+      }, 3000);
+
       queryClient.invalidateQueries({ queryKey: ['/api/auto-sync/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-sync/status'] });
       toast({
         title: "Success",
         description: "Manual sync completed successfully",
       });
     },
     onError: (error: any) => {
+      setSyncProgress({
+        isRunning: false,
+        progress: 0,
+        message: '',
+        recordsProcessed: 0,
+        totalDevices: 0,
+        currentDevice: ''
+      });
       toast({
         title: "Error",
         description: error.message || "Manual sync failed",
@@ -1042,34 +1098,72 @@ export default function Settings() {
                   </div>
                   
                   <div className="md:col-span-2">
-                    <div className="flex items-center justify-between p-3 bg-white rounded border">
-                      <div>
-                        <p className="text-sm font-medium">Last Sync</p>
-                        <p className="text-xs text-gray-500">
-                          {autoSyncSettings.lastSync 
-                            ? new Date(autoSyncSettings.lastSync).toLocaleString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                              })
-                            : 'Never synced'
-                          }
-                        </p>
+                    <div className="p-3 bg-white rounded border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium flex items-center">
+                            Last Sync
+                            {autoSyncStatus?.running && (
+                              <Zap className="w-3 h-3 ml-2 text-green-500 animate-pulse" />
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {autoSyncSettings.lastSync 
+                              ? new Date(autoSyncSettings.lastSync).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: true
+                                })
+                              : 'Never synced'
+                            }
+                          </p>
+                          {autoSyncStatus?.running && (
+                            <p className="text-xs text-green-600 font-medium">
+                              Auto-sync active (every {autoSyncSettings.intervalMinutes} min)
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            manualSyncMutation.mutate();
+                          }}
+                          disabled={manualSyncMutation.isPending || syncProgress.isRunning}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          {manualSyncMutation.isPending || syncProgress.isRunning ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              Syncing...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3 h-3 mr-1" />
+                              Sync Now
+                            </>
+                          )}
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          manualSyncMutation.mutate();
-                        }}
-                        disabled={manualSyncMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        {manualSyncMutation.isPending ? 'Syncing...' : 'Sync Now'}
-                      </Button>
+
+                      {/* Progress Indicator */}
+                      {(syncProgress.isRunning || syncProgress.progress > 0) && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600">{syncProgress.message}</span>
+                            <span className="text-gray-500">{Math.round(syncProgress.progress)}%</span>
+                          </div>
+                          <Progress value={syncProgress.progress} className="h-2" />
+                          {syncProgress.recordsProcessed > 0 && (
+                            <p className="text-xs text-gray-500">
+                              {syncProgress.recordsProcessed} records processed
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
