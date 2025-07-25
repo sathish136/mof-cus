@@ -16,8 +16,7 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(formatDate(new Date()));
   const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  // Removed preview system - now using direct downloads
 
   // Automatically update date range for specific reports
   useEffect(() => {
@@ -272,7 +271,7 @@ export default function Reports() {
     enabled: reportType === "monthly-absence",
   });
 
-  const handlePreviewExport = () => {
+  const handleDirectExcelExport = () => {
     let data: any;
     let filename: string;
     
@@ -326,14 +325,70 @@ export default function Reports() {
       return;
     }
 
-    setPreviewData({ data, filename, reportType });
-    setIsPreviewOpen(true);
+    // Directly export to Excel without preview
+    handleExportToExcelDirect({ data, filename, reportType });
   };
 
-  const handleExportToExcel = () => {
-    if (!previewData) return;
+  const handleDirectPdfExport = () => {
+    let data: any;
+    let filename: string;
     
-    const { data, filename, reportType } = previewData;
+    switch (reportType) {
+      case "monthly-attendance":
+        data = monthlyAttendanceData;
+        filename = `monthly-attendance-${startDate}-to-${endDate}`;
+        break;
+      case "daily-attendance":
+        data = dailyAttendanceData;
+        filename = `daily-attendance-${startDate}`;
+        break;
+      case "daily-ot":
+        data = dailyOtData;
+        filename = `daily-ot-${startDate}`;
+        break;
+      case "late-arrival":
+        data = lateArrivalData;
+        filename = `late-arrival-${startDate}-to-${endDate}`;
+        break;
+      case "half-day":
+        data = halfDayData;
+        filename = `half-day-${startDate}-to-${endDate}`;
+        break;
+      case "short-leave-usage":
+        data = shortLeaveUsageData;
+        filename = `short-leave-usage-${startDate}-to-${endDate}`;
+        break;
+      case "offer-attendance":
+        data = offerAttendanceData;
+        filename = `offer-attendance-${startDate}-to-${endDate}`;
+        break;
+      case "employee-punch-times":
+        data = punchTimesData;
+        filename = `employee-punch-times-${startDate}-to-${endDate}`;
+        break;
+      case "individual-monthly":
+        data = individualMonthlyData;
+        filename = `individual-monthly-${startDate}-to-${endDate}`;
+        break;
+      case "monthly-absence":
+        data = monthlyAbsenceData;
+        filename = `monthly-absence-${startDate}-to-${endDate}`;
+        break;
+      default:
+        return;
+    }
+
+    if (!data || data.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    // Directly export to PDF without preview
+    exportToPDF(data, filename, reportType);
+  };
+
+  const handleExportToExcelDirect = (exportData: { data: any, filename: string, reportType: string }) => {
+    const { data, filename, reportType } = exportData;
     
     try {
       // Get current date and time for report generation - same as PDF format
@@ -499,7 +554,6 @@ export default function Reports() {
       const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       
       saveAs(blob, `${filename}.xlsx`);
-      setIsPreviewOpen(false);
     } catch (error) {
       console.error("Export failed:", error);
       alert("Export failed. Please try again.");
@@ -2336,14 +2390,14 @@ export default function Reports() {
         <h2 className="text-2xl font-bold">Reports</h2>
         <div className="flex gap-3">
           <Button 
-            onClick={handlePreviewExport}
+            onClick={handleDirectExcelExport}
             className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out flex items-center gap-2"
           >
             <FileSpreadsheet className="h-4 w-4" />
             Excel Export
           </Button>
           <Button 
-            onClick={() => handleExportReport('pdf')}
+            onClick={handleDirectPdfExport}
             className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
