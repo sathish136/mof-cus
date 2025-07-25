@@ -40,6 +40,86 @@ import { storage } from './storage';
 
 const router = express.Router();
 
+// Auto-sync settings and interval management
+let autoSyncSettings = {
+  enabled: false,
+  intervalMinutes: 0.5, // 30 seconds = 0.5 minutes
+  syncOnStartup: true,
+  syncNotifications: true,
+  lastSync: null as Date | null
+};
+
+let autoSyncInterval: NodeJS.Timeout | null = null;
+
+// Auto-sync function to sync all devices
+async function performAutoSync() {
+  try {
+    console.log('Starting auto-sync for all biometric devices...');
+    
+    const devices = await db.select().from(biometricDevices);
+    let totalSynced = 0;
+    
+    for (const device of devices) {
+      try {
+        if (!zkDeviceManager.isDeviceConnected(device.deviceId)) {
+          const connected = await zkDeviceManager.connectDevice(device.deviceId, {
+            ip: device.ip,
+            port: device.port,
+            timeout: 5000,
+            inport: 1,
+          });
+          if (!connected) {
+            console.warn(`Could not connect to device ${device.deviceId} during auto-sync`);
+            continue;
+          }
+        }
+
+        const logs = await zkDeviceManager.syncAttendanceData(device.deviceId);
+        if (logs && logs.length > 0) {
+          totalSynced += logs.length;
+          console.log(`Auto-synced ${logs.length} records from device ${device.deviceId}`);
+        }
+      } catch (error) {
+        console.error(`Auto-sync error for device ${device.deviceId}:`, error);
+      }
+    }
+    
+    autoSyncSettings.lastSync = new Date();
+    if (totalSynced > 0) {
+      console.log(`Auto-sync completed: ${totalSynced} total records processed`);
+    }
+  } catch (error) {
+    console.error('Auto-sync failed:', error);
+  }
+}
+
+// Start auto-sync interval
+function startAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+  }
+  
+  if (autoSyncSettings.enabled) {
+    const intervalMs = autoSyncSettings.intervalMinutes * 60 * 1000;
+    autoSyncInterval = setInterval(performAutoSync, intervalMs);
+    console.log(`Auto-sync started with ${autoSyncSettings.intervalMinutes} minute interval`);
+    
+    // Sync on startup if enabled
+    if (autoSyncSettings.syncOnStartup) {
+      setTimeout(performAutoSync, 5000); // Start after 5 seconds
+    }
+  }
+}
+
+// Stop auto-sync interval
+function stopAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+    console.log('Auto-sync stopped');
+  }
+}
+
 // --- File Upload Setup ---
 // Use import.meta.url to get the directory path in ES modules, compatible with Windows
 const uploadDir = path.join(__dirname, "..", "uploads");
@@ -2007,6 +2087,75 @@ router.get("/api/zk-devices/:deviceId/users", async (req, res) => {
   }
 });
 
+// --- Auto-Sync API Routes ---
+router.get("/api/auto-sync/settings", (req, res) => {
+  res.json(autoSyncSettings);
+});
+
+router.post("/api/auto-sync/settings", (req, res) => {
+  try {
+    const { enabled, intervalMinutes, syncOnStartup, syncNotifications } = req.body;
+    
+    autoSyncSettings = {
+      ...autoSyncSettings,
+      enabled: Boolean(enabled),
+      intervalMinutes: Math.max(0.5, Number(intervalMinutes) || 0.5), // Minimum 30 seconds
+      syncOnStartup: Boolean(syncOnStartup),
+      syncNotifications: Boolean(syncNotifications)
+    };
+    
+    // Restart auto-sync with new settings
+    if (autoSyncSettings.enabled) {
+      startAutoSync();
+    } else {
+      stopAutoSync();
+    }
+    
+    res.json({ success: true, message: "Auto-sync settings updated", settings: autoSyncSettings });
+  } catch (error) {
+    console.error("Failed to update auto-sync settings:", error);
+    res.status(500).json({ success: false, message: "Failed to update auto-sync settings" });
+  }
+});
+
+router.post("/api/auto-sync/manual", async (req, res) => {
+  try {
+    await performAutoSync();
+    res.json({ success: true, message: "Manual sync completed", lastSync: autoSyncSettings.lastSync });
+  } catch (error) {
+    console.error("Manual sync failed:", error);
+    res.status(500).json({ success: false, message: "Manual sync failed" });
+  }
+});
+
+router.get("/api/auto-sync/status", (req, res) => {
+  res.json({
+    enabled: autoSyncSettings.enabled,
+    running: autoSyncInterval !== null,
+    lastSync: autoSyncSettings.lastSync,
+    intervalMinutes: autoSyncSettings.intervalMinutes
+  });
+});
+
+router.post("/api/auto-sync/manual", async (req, res) => {
+  try {
+    await performAutoSync();
+    res.json({ success: true, message: "Manual sync completed", lastSync: autoSyncSettings.lastSync });
+  } catch (error) {
+    console.error("Manual sync failed:", error);
+    res.status(500).json({ success: false, message: "Manual sync failed" });
+  }
+});
+
+router.get("/api/auto-sync/status", (req, res) => {
+  res.json({
+    enabled: autoSyncSettings.enabled,
+    running: autoSyncInterval !== null,
+    lastSync: autoSyncSettings.lastSync,
+    intervalMinutes: autoSyncSettings.intervalMinutes
+  });
+});
+
 router.post("/api/employees/:id/photo", upload.single("file"), async (req, res) => {
   try {
     const id = req.params.id; // Already a string, no need to parse
@@ -3390,6 +3539,15 @@ function isGovernmentHoliday(date: Date): boolean {
   const dateString = date.toISOString().split('T')[0];
   return holidays.includes(dateString);
 }
+
+// Initialize auto-sync on server startup
+setTimeout(() => {
+  console.log('Initializing auto-sync system...');
+  // Enable auto-sync by default with 30-second interval
+  autoSyncSettings.enabled = true;
+  autoSyncSettings.intervalMinutes = 0.5; // 30 seconds
+  startAutoSync();
+}, 3000); // Start after 3 seconds to allow server to fully initialize
 
 export default router;
 

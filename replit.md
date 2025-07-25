@@ -267,6 +267,13 @@ Changelog:
     - Updated backend API to provide formatted UTC times and frontend to display them correctly
     - Both monthly and daily attendance reports now showing consistent real biometric device data
     - System fully operational and ready for production use with real biometric device integration
+    - Implemented Auto-Sync functionality for biometric devices with 30-second interval
+    - Added comprehensive Auto-Sync API endpoints (settings, manual sync, status)
+    - Updated frontend Settings page to connect with Auto-Sync backend system
+    - Auto-sync system automatically starts on server initialization and syncs all biometric devices
+    - Users can configure sync interval from 30 seconds to 1 hour through Settings interface
+    - Manual sync button allows immediate synchronization of all devices
+    - Auto-sync status tracking shows last sync time and current running state
   - System Management Updates (July 7, 2025):
     - Reorganized Settings page with 6 separate tabs: General, Company, Devices, Database, Email, System
     - Created dedicated Database Management tab with operations, status monitoring, and recent operations table

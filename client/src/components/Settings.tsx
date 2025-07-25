@@ -57,10 +57,10 @@ export default function Settings() {
   });
   const [autoSyncSettings, setAutoSyncSettings] = useState({
     enabled: false,
-    interval: 30, // minutes
+    intervalMinutes: 0.5, // 30 seconds = 0.5 minutes
     lastSync: null as Date | null,
     syncOnStartup: true,
-    notifications: true
+    syncNotifications: true
   });
   const { license, validateLicense } = useLicense();
   const [systemLogs, setSystemLogs] = useState({
@@ -84,6 +84,69 @@ export default function Settings() {
     enableAuthentication: true
   });
   const [testEmail, setTestEmail] = useState('');
+
+  // Auto-sync Settings Query
+  const { data: autoSyncData, isLoading: autoSyncLoading } = useQuery({
+    queryKey: ['/api/auto-sync/settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/auto-sync/settings');
+      if (!response.ok) throw new Error('Failed to fetch auto-sync settings');
+      return response.json();
+    },
+  });
+
+  // Auto-sync Settings Mutation
+  const updateAutoSyncMutation = useMutation({
+    mutationFn: async (settings: typeof autoSyncSettings) => {
+      const response = await fetch('/api/auto-sync/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (!response.ok) throw new Error('Failed to update auto-sync settings');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-sync/settings'] });
+      toast({
+        title: "Success",
+        description: "Auto-sync settings updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update auto-sync settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Manual Sync Mutation
+  const manualSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/auto-sync/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to perform manual sync');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-sync/settings'] });
+      toast({
+        title: "Success",
+        description: "Manual sync completed successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Manual sync failed",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Email Settings Query
   const { data: emailSettingsData, isLoading: emailSettingsLoading } = useQuery({
@@ -183,6 +246,13 @@ export default function Settings() {
       setEmailSettings(emailSettingsData);
     }
   }, [emailSettingsData]);
+
+  // Update auto-sync settings when data loads
+  useEffect(() => {
+    if (autoSyncData) {
+      setAutoSyncSettings(autoSyncData);
+    }
+  }, [autoSyncData]);
 
   const saveCompanySettingsMutation = useMutation({
     mutationFn: async (settings: typeof companySettings) => {
@@ -912,8 +982,7 @@ export default function Settings() {
                   onCheckedChange={(checked) => {
                     const newSettings = {...autoSyncSettings, enabled: checked};
                     setAutoSyncSettings(newSettings);
-                    // Auto-save when toggling enable/disable
-                    localStorage.setItem('autoSyncSettings', JSON.stringify(newSettings));
+                    updateAutoSyncMutation.mutate(newSettings);
                   }}
                 />
               </div>
@@ -923,25 +992,25 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label htmlFor="syncInterval">Sync Interval (minutes)</Label>
                     <Select 
-                      value={autoSyncSettings.interval.toString()} 
+                      value={autoSyncSettings.intervalMinutes.toString()} 
                       onValueChange={(value) => {
-                        const newSettings = {...autoSyncSettings, interval: parseInt(value)};
+                        const newSettings = {...autoSyncSettings, intervalMinutes: parseFloat(value)};
                         setAutoSyncSettings(newSettings);
-                        localStorage.setItem('autoSyncSettings', JSON.stringify(newSettings));
+                        updateAutoSyncMutation.mutate(newSettings);
                       }}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="0.5">30 seconds</SelectItem>
+                        <SelectItem value="1">1 minute</SelectItem>
+                        <SelectItem value="2">2 minutes</SelectItem>
                         <SelectItem value="5">5 minutes</SelectItem>
                         <SelectItem value="10">10 minutes</SelectItem>
                         <SelectItem value="15">15 minutes</SelectItem>
                         <SelectItem value="30">30 minutes</SelectItem>
                         <SelectItem value="60">1 hour</SelectItem>
-                        <SelectItem value="120">2 hours</SelectItem>
-                        <SelectItem value="240">4 hours</SelectItem>
-                        <SelectItem value="480">8 hours</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -954,7 +1023,7 @@ export default function Settings() {
                         onCheckedChange={(checked) => {
                           const newSettings = {...autoSyncSettings, syncOnStartup: checked};
                           setAutoSyncSettings(newSettings);
-                          localStorage.setItem('autoSyncSettings', JSON.stringify(newSettings));
+                          updateAutoSyncMutation.mutate(newSettings);
                         }}
                       />
                     </div>
@@ -962,11 +1031,11 @@ export default function Settings() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Sync notifications</Label>
                       <Switch
-                        checked={autoSyncSettings.notifications}
+                        checked={autoSyncSettings.syncNotifications}
                         onCheckedChange={(checked) => {
-                          const newSettings = {...autoSyncSettings, notifications: checked};
+                          const newSettings = {...autoSyncSettings, syncNotifications: checked};
                           setAutoSyncSettings(newSettings);
-                          localStorage.setItem('autoSyncSettings', JSON.stringify(newSettings));
+                          updateAutoSyncMutation.mutate(newSettings);
                         }}
                       />
                     </div>
@@ -986,18 +1055,12 @@ export default function Settings() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          // Trigger manual sync for all devices
-                          biometricDevices?.forEach(device => {
-                            syncDeviceMutation.mutate(device.deviceId);
-                          });
-                          const newSettings = {...autoSyncSettings, lastSync: new Date()};
-                          setAutoSyncSettings(newSettings);
-                          localStorage.setItem('autoSyncSettings', JSON.stringify(newSettings));
+                          manualSyncMutation.mutate();
                         }}
-                        disabled={syncDeviceMutation.isPending}
+                        disabled={manualSyncMutation.isPending}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
-                        {syncDeviceMutation.isPending ? 'Syncing...' : 'Sync Now'}
+                        {manualSyncMutation.isPending ? 'Syncing...' : 'Sync Now'}
                       </Button>
                     </div>
                   </div>
@@ -1005,16 +1068,12 @@ export default function Settings() {
                   <div className="md:col-span-2 flex justify-end">
                     <Button 
                       onClick={() => {
-                        // Save auto sync settings to localStorage
-                        localStorage.setItem('autoSyncSettings', JSON.stringify(autoSyncSettings));
-                        toast({
-                          title: "Settings Saved",
-                          description: "Auto sync settings have been saved successfully.",
-                        });
+                        updateAutoSyncMutation.mutate(autoSyncSettings);
                       }}
+                      disabled={updateAutoSyncMutation.isPending}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      Save Auto Sync Settings
+                      {updateAutoSyncMutation.isPending ? 'Saving...' : 'Save Auto Sync Settings'}
                     </Button>
                   </div>
                 </div>
