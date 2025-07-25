@@ -1047,7 +1047,15 @@ export default function Settings() {
                         <p className="text-sm font-medium">Last Sync</p>
                         <p className="text-xs text-gray-500">
                           {autoSyncSettings.lastSync 
-                            ? autoSyncSettings.lastSync.toLocaleString() 
+                            ? new Date(autoSyncSettings.lastSync).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                              })
                             : 'Never synced'
                           }
                         </p>
