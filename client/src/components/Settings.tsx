@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Wifi, MapPin, Plus, Edit, Trash2, RefreshCw, Activity, AlertCircle, Users, ChevronRight, Building2, Building, User, Shield, Key, FileText, HelpCircle, CheckCircle, XCircle, Clock, Mail, Database, Loader2, Zap } from "lucide-react";
+import { Settings as SettingsIcon, Wifi, WifiOff, MapPin, Plus, Edit, Trash2, RefreshCw, Activity, AlertCircle, Users, ChevronRight, Building2, Building, User, Shield, Key, FileText, HelpCircle, CheckCircle, XCircle, Clock, Mail, Database, Loader2, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { useLicense } from "@/hooks/useLicense";
 import { LicenseInfo } from "@/components/LicenseInfo";
@@ -390,6 +390,33 @@ export default function Settings() {
       toast({
         title: "Error",
         description: error.message || "Failed to add biometric device",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: async (deviceId: number) => {
+      const response = await fetch(`/api/biometric-devices/${deviceId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete device");
+      }
+    },
+    onSuccess: (_, deviceId) => {
+      queryClient.setQueryData(['/api/biometric-devices'], (oldData: BiometricDevice[] | undefined) => {
+        return oldData ? oldData.filter(device => device.id !== deviceId) : [];
+      });
+      toast({
+        title: "Success",
+        description: "Biometric device deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete biometric device",
         variant: "destructive",
       });
     },
@@ -1295,8 +1322,12 @@ export default function Settings() {
               {biometricDevices.map((device: BiometricDevice) => (
                 <div key={device.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                   <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-lg ${device.isActive ? 'bg-emerald-100' : 'bg-slate-100'}`}>
-                      <Activity className={`w-5 h-5 ${device.isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <div className={`p-3 rounded-lg ${device.isActive ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                      {device.isActive ? (
+                        <Wifi className="w-5 h-5 text-emerald-600" />
+                      ) : (
+                        <WifiOff className="w-5 h-5 text-red-600" />
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{device.deviceId}</p>
@@ -1308,7 +1339,7 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center space-x-3">
                     <Badge variant={device.isActive ? "default" : "secondary"} 
-                           className={device.isActive ? "bg-emerald-100 text-emerald-800 border-emerald-200" : ""}>
+                           className={device.isActive ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-red-100 text-red-800 border-red-200"}>
                       {device.isActive ? "Online" : "Offline"}
                     </Badge>
                     <div className="flex space-x-1">
@@ -1330,7 +1361,7 @@ export default function Settings() {
                         className="text-red-600 border-red-200 hover:bg-red-50"
                         title="Disconnect from ZK Device"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <WifiOff className="w-4 h-4" />
                       </Button>
                       <Button 
                         variant="outline" 
@@ -1361,6 +1392,36 @@ export default function Settings() {
                       }}>
                         <Edit className="w-4 h-4" />
                       </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            title="Delete Device"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete Biometric Device</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete "{device.deviceId}" located at "{device.location}"? This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline">Cancel</Button>
+                            <Button 
+                              variant="destructive"
+                              onClick={() => deleteDeviceMutation.mutate(device.id)}
+                              disabled={deleteDeviceMutation.isPending}
+                            >
+                              {deleteDeviceMutation.isPending ? "Deleting..." : "Delete Device"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                       <Button 
                         variant="outline" 
                         size="sm"
