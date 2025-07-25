@@ -636,9 +636,15 @@ export default function Reports() {
   };
 
   const exportToPDF = (data: any[], filename: string, reportType: string) => {
-    // Simple HTML to PDF conversion using browser print
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+    // Create a hidden iframe for PDF generation and direct download
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) return;
 
     // Get current date and time for report generation
     const now = new Date();
@@ -1037,8 +1043,17 @@ export default function Reports() {
       </html>
     `;
 
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+    
+    // Auto-print for direct PDF download
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      // Clean up after print
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 100);
   };
 
   const renderDailyAttendanceReport = () => {
