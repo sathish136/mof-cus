@@ -263,8 +263,8 @@ Changelog:
     - Complete database setup with sample admin employee (EMP001) for testing
     - Fixed daily attendance sync issue by resolving data conflicts between test data and biometric device sync
     - Removed duplicate attendance records that were causing time discrepancies
-    - Fixed timezone display issue - times now show in Sri Lanka local time (UTC+5:30) instead of UTC
-    - Updated backend API to provide formatted local times and frontend to display them correctly
+    - Fixed timezone display issue - times now consistently show in UTC format as requested
+    - Updated backend API to provide formatted UTC times and frontend to display them correctly
     - Both monthly and daily attendance reports now showing consistent real biometric device data
     - System fully operational and ready for production use with real biometric device integration
   - System Management Updates (July 7, 2025):
