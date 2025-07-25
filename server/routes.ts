@@ -1386,12 +1386,24 @@ router.get("/api/reports/daily-attendance", async (req, res) => {
         status = 'Late';
       }
 
+      // Convert UTC times to Sri Lanka local time for consistency
+      const formatLocalTime = (utcTime: Date | null) => {
+        if (!utcTime) return '';
+        // Convert UTC to Sri Lanka time (UTC+5:30)
+        const sriLankaTime = new Date(utcTime.getTime() + (5.5 * 60 * 60 * 1000));
+        return sriLankaTime.toLocaleTimeString('en-GB', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+      };
+
       return {
         employeeId: emp.employeeId,
         fullName: emp.fullName,
         date: startOfDay.toISOString().split('T')[0],
-        inTime: inTime ? inTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '',
-        outTime: outTime ? outTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '',
+        inTime: formatLocalTime(inTime),
+        outTime: formatLocalTime(outTime),
         totalHours,
         isLate,
         isHalfDay,
